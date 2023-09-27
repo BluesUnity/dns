@@ -1,12 +1,8 @@
 #!/bin/bash
 
-export http_proxy=http://cache.univ-pau.fr:3128
-export https_proxy=http://cache.univ-pau.fr:3128
-
+ip_addr=192.168.40.x
+ddns=caca.dns
 apt update
-apt upgrade -y
-apt install ssh
-systemctl restart ssh
 echo "ok apt"
 
 apt install bind9 bind9-doc dnsutils
@@ -21,7 +17,7 @@ echo "ok creation de fichier"
 echo 'include "/etc/bind/logging.conf";' >> /etc/bind/named.conf
 echo "logging {
 	channel bind_log {
-		file "/var/log/bind/bind.log";
+		file \"/var/log/bind/bind.log\";
 		severity info;
 		print-category yes;
 		print-severity yes;
@@ -35,15 +31,15 @@ echo "logging {
 	category lame-servers { null; };
 };" >> /etc/bind/logging.conf
 
-echo 'zone "caca.dns"{
+echo 'zone "$ddns"{
 	type master;
 	file "/etc/bind/db.nom";
 };' >> /etc/bind/named.conf.default-zones
 
-echo > '
+echo '
 
 $TTL 1d
-@ IN SOA caca.dns. admin.caca.dns. (
+@ IN SOA $ddns. admin.$ddns. (
 1 ; serial
 6H ; refresh
 3H ; retry
@@ -52,13 +48,13 @@ $TTL 1d
 
 @ IN NS FQDN
 
-$ORIGIN caca.dns
+$ORIGIN $ddns
 
-FQDN IN A 192.168.40.72
+FQDN IN A $ip_addr
 
-apachedebian IN A 192.168.40.72
+apachedebian IN A $ip_addr 
 www IN CNAME apachedebian
-'
+' > /etc/bind/db.nom
 echo "ok fichier conf"
 
 
