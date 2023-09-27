@@ -18,7 +18,7 @@ touch /etc/bind/db.nom
 
 echo "ok creation de fichier"
 
-echo 'include "/etc/bind/logging.conf”;' >> /etc/bind/named.conf
+echo 'include "/etc/bind/logging.conf";' >> /etc/bind/named.conf
 echo "logging {
 	channel bind_log {
 		file "/var/log/bind/bind.log";
@@ -62,8 +62,8 @@ www IN CNAME apachedebian
 echo "ok fichier conf"
 
 
-sed -i '60i\/var/log/bind/** rw' /etc/apparmor.d/usr.sbin.named
-systemctl restart app.service
+sed -i '60i\  /var/log/bind/** rw,' /etc/apparmor.d/usr.sbin.named
+systemctl restart apparmor.service
 systemctl restart bind9
 
 echo "ok apparmor + bind restart"
