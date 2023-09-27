@@ -47,7 +47,7 @@ echo "
 
 @ IN NS FQDN
 
-\$ORIGIN $ddns
+\$ORIGIN $ddns.
 
 FQDN IN A $ip_addr
 
