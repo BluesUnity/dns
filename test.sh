@@ -1,7 +1,7 @@
 #!/bin/bash
 
-ip_addr=192.168.40.x
-ddns=caca.dns
+ip_addr="192.168.40.x"
+ddns="caca.dns"
 apt update
 echo "ok apt"
 
