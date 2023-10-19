@@ -38,7 +38,7 @@ echo "
 dn: olcDatabase={0}config,cn=config
 changeType: modify
 add: olcAccess
-olcAccess: to * by dn.exact=cn=admin,dc=mondomaine,dc=private manage by * break
+olcAccess: to * by dn.exact=cn=admin,dc=$domaine,dc=private manage by * break
 " >> /etc/ldap/acces-admin.ldif
 
 ldapmodify -Y external -H ldapi:/// -f /etc/ldap/acces-admin.ldif
