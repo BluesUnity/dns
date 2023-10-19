@@ -6,8 +6,8 @@ apt install rsyslog
 
 dpkg-reconfigure slapd
 
-domaine = "mondomaine"
-ip_ldap = "192.168.64.177"
+domaine="mondomaine"
+ip_ldap="192.168.64.177"
 
 echo "
 BASE dc=$domaine,dc=private
