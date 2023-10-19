@@ -1,5 +1,14 @@
 #!/bin/bash
 
+apt update
+apt install slapd ldap-utils
+apt install rsyslog
+
+dpkg-reconfigure slapd
+
+domaine = "mondomaine"
+ip_ldap = "192.168.64.177"
+
 # Activation des logs
 ldapsearch -Y external -H ldapi:/// -b cn=config "(objectClass=olcGlobal)" > slapdlog.ldif
 echo "dn: cn=config" > slapdlog.ldif
@@ -13,37 +22,37 @@ echo "local4.* /var/log/slapd.log" > /etc/rsyslog.d/10-ldap.conf
 systemctl restart rsyslog
 
 # Autorisation pour le compte admin à accéder à la configuration de l'annuaire
-ldapsearch -x -H ldap://localhost -D cn=admin,dc=mondomaine,dc=private -W -b cn=config
+ldapsearch -x -H ldap://localhost -D cn=admin,dc=$domaine,dc=private -W -b cn=config
 echo "dn: olcDatabase={0}config,cn=config" > acces-admin.ldif
 echo "changeType: modify" >> acces-admin.ldif
 echo "add: olcAccess" >> acces-admin.ldif
-echo "olcAccess: to * by dn.exact=cn=admin,dc=mondomaine,dc=private manage by * break" >> acces-admin.ldif
+echo "olcAccess: to * by dn.exact=cn=admin,dc=$domaine,dc=private manage by * break" >> acces-admin.ldif
 ldapmodify -Y external -H ldapi:/// -f acces-admin.ldif
 
 # Schéma ppolicy
-ldapsearch -x -s one -H ldap://localhost -D cn=admin,dc=mondomaine,dc=private -W -b cn=schema,cn=config cn -LLL
+ldapsearch -x -s one -H ldap://localhost -D cn=admin,dc=$domaine,dc=private -W -b cn=schema,cn=config cn -LLL
 
 # Activation du module ppolicy
 echo "dn: cn=module{0},cn=config" > ppolicy-module.ldif
 echo "changeType: modify" >> ppolicy-module.ldif
 echo "add: olcModuleLoad" >> ppolicy-module.ldif
 echo "olcModuleLoad: ppolicy" >> ppolicy-module.ldif
-ldapmodify -x -H ldap://localhost -D cn=admin,dc=mondomaine,dc=private -W -f ppolicy-module.ldif
+ldapmodify -x -H ldap://localhost -D cn=admin,dc=$domaine,dc=private -W -f ppolicy-module.ldif
 
 # Configuration du module ppolicy
 echo "dn: olcOverlay=ppolicy,olcDatabase={1}mdb,cn=config" > ppolicy-conf.ldif
 echo "objectClass: olcPpolicyConfig" >> ppolicy-conf.ldif
 echo "olcOverlay: ppolicy" >> ppolicy-conf.ldif
-echo "olcPPolicyDefault: cn=ppolicy,dc=mondomaine,dc=private" >> ppolicy-conf.ldif
+echo "olcPPolicyDefault: cn=ppolicy,dc=$domaine,dc=private" >> ppolicy-conf.ldif
 echo "olcPPolicyUseLockout: FALSE" >> ppolicy-conf.ldif
 echo "olcPPolicyHashCleartext: TRUE" >> ppolicy-conf.ldif
-ldapmodify -x -a -H ldap://localhost -D cn=admin,dc=mondomaine,dc=private -W -f ppolicy-conf.ldif
+ldapmodify -x -a -H ldap://localhost -D cn=admin,dc=$domaine,dc=private -W -f ppolicy-conf.ldif
 
 # Vérification de la prise en compte
-ldapsearch -x -H ldap://localhost -D cn=admin,dc=mondomaine,dc=private -W -b cn=config "(objectClass=olcModuleList)" olcModuleLoad -LLL
+ldapsearch -x -H ldap://localhost -D cn=admin,dc=$domaine,dc=private -W -b cn=config "(objectClass=olcModuleList)" olcModuleLoad -LLL
 
 # Configuration des règles de mot de passe
-echo "dn: cn=ppolicy,dc=mondomaine,dc=private" > ppolicy-default.ldif
+echo "dn: cn=ppolicy,dc=$domaine,dc=private" > ppolicy-default.ldif
 echo "objectClass: device" >> ppolicy-default.ldif
 echo "objectClass: pwdPolicyChecker" >> ppolicy-default.ldif
 echo "objectClass: pwdPolicy" >> ppolicy-default.ldif
@@ -63,17 +72,17 @@ echo "pwdMinAge: 0" >> ppolicy-default.ldif
 echo "pwdMinLength: 5" >> ppolicy-default.ldif
 echo "pwdMustChange: FALSE" >> ppolicy-default.ldif
 echo "pwdSafeModify: FALSE" >> ppolicy-default.ldif
-ldapmodify -x -a -H ldap://localhost -D cn=admin,dc=mondomaine,dc=private -W -f ppolicy-default.ldif
+ldapmodify -x -a -H ldap://localhost -D cn=admin,dc=$domaine,dc=private -W -f ppolicy-default.ldif
 
 # Arborescence OpenLDAP
 # Création de l'arborescence
-ldapadd -x -f ou.ldif -W -D cn=admin,dc=mondomaine,dc=private
+ldapadd -x -f ou.ldif -W -D cn=admin,dc=$domaine,dc=private
 
 # Création des groupes
-ldapadd -x -f groupes.ldif -W -D cn=admin,dc=mondomaine,dc=private
+ldapadd -x -f groupes.ldif -W -D cn=admin,dc=$domaine,dc=private
 
 # Création des utilisateurs
-ldapadd -x -f utilisateurs.ldif -W -D cn=admin,dc=mondomaine,dc=private
+ldapadd -x -f utilisateurs.ldif -W -D cn=admin,dc=$domaine,dc=private
 
 # Ajout du compte adminlecture aux groupes administrateurs
-ldapmodify -x -W -D "cn=admin,dc=mondomaine,dc=private" -f ajout_groupes.ldif
+ldapmodify -x -W -D "cn=admin,dc=$domaine,dc=private" -f ajout_groupes.ldif
