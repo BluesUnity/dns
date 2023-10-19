@@ -9,50 +9,71 @@ dpkg-reconfigure slapd
 domaine = "mondomaine"
 ip_ldap = "192.168.64.177"
 
-# Activation des logs
-ldapsearch -Y external -H ldapi:/// -b cn=config "(objectClass=olcGlobal)" > slapdlog.ldif
-echo "dn: cn=config" > slapdlog.ldif
+
+# Configuration de LDAP
+echo "BASE dc=mondomaine,dc=private" > /etc/ldap/ldap.conf
+echo "URI ldap://$ip_ldap" >> /etc/ldap/ldap.conf
+echo "SIZELIMIT 12" >> /etc/ldap/ldap.conf
+echo "TIMELIMIT 15" >> /etc/ldap/ldap.conf
+echo "DEREF never" >> /etc/ldap/ldap.conf
+
+# Test de la configuration LDAP
+ldapsearch -x -b dc=mondomaine,dc=private
+
+# Activation des logs LDAP
+ldapsearch -Y external -H ldapi:/// -b cn=config "(objectClass=olcGlobal)" | grep olcLogLevel > slapdlog.ldif
+echo "dn: cn=config" >> slapdlog.ldif
 echo "changeType: modify" >> slapdlog.ldif
 echo "replace: olcLogLevel" >> slapdlog.ldif
 echo "olcLogLevel: conns filter config ACL stats stats2" >> slapdlog.ldif
+
 ldapmodify -Y external -H ldapi:/// -f slapdlog.ldif
 
 # Activation des logs sur le système
 echo "local4.* /var/log/slapd.log" > /etc/rsyslog.d/10-ldap.conf
 systemctl restart rsyslog
 
-# Autorisation pour le compte admin à accéder à la configuration de l'annuaire
-ldapsearch -x -H ldap://localhost -D cn=admin,dc=$domaine,dc=private -W -b cn=config
+# Autorisation pour le compte admin d'accéder à la configuration de l'annuaire
+ldapsearch -x -H ldap://localhost -D cn=admin,dc=mondomaine,dc=private -W -b cn=config
+
 echo "dn: olcDatabase={0}config,cn=config" > acces-admin.ldif
 echo "changeType: modify" >> acces-admin.ldif
 echo "add: olcAccess" >> acces-admin.ldif
-echo "olcAccess: to * by dn.exact=cn=admin,dc=$domaine,dc=private manage by * break" >> acces-admin.ldif
+echo "olcAccess: to * by dn.exact=cn=admin,dc=mondomaine,dc=private manage by * break" >> acces-admin.ldif
+
 ldapmodify -Y external -H ldapi:/// -f acces-admin.ldif
 
+ldapsearch -x -H ldap://localhost -D cn=admin,dc=mondomaine,dc=private -W -b cn=config
+
 # Schéma ppolicy
-ldapsearch -x -s one -H ldap://localhost -D cn=admin,dc=$domaine,dc=private -W -b cn=schema,cn=config cn -LLL
+ldapsearch -x -s one -H ldap://localhost -D cn=admin,dc=mondomaine,dc=private -W -b cn=schema,cn=config cn -LLL
 
 # Activation du module ppolicy
 echo "dn: cn=module{0},cn=config" > ppolicy-module.ldif
 echo "changeType: modify" >> ppolicy-module.ldif
 echo "add: olcModuleLoad" >> ppolicy-module.ldif
 echo "olcModuleLoad: ppolicy" >> ppolicy-module.ldif
-ldapmodify -x -H ldap://localhost -D cn=admin,dc=$domaine,dc=private -W -f ppolicy-module.ldif
+
+ldapmodify -x -H ldap://localhost -D cn=admin,dc=mondomaine,dc=private -W -f ppolicy-module.ldif
+
+# Vérification de la prise en compte
+ldapsearch -x -H ldap://localhost -D cn=admin,dc=mondomaine,dc=private -W -b cn=config "(objectClass=olcModuleList)" olcModuleLoad -LLL
 
 # Configuration du module ppolicy
 echo "dn: olcOverlay=ppolicy,olcDatabase={1}mdb,cn=config" > ppolicy-conf.ldif
 echo "objectClass: olcPpolicyConfig" >> ppolicy-conf.ldif
 echo "olcOverlay: ppolicy" >> ppolicy-conf.ldif
-echo "olcPPolicyDefault: cn=ppolicy,dc=$domaine,dc=private" >> ppolicy-conf.ldif
+echo "olcPPolicyDefault: cn=ppolicy,dc=mondomaine,dc=private" >> ppolicy-conf.ldif
 echo "olcPPolicyUseLockout: FALSE" >> ppolicy-conf.ldif
 echo "olcPPolicyHashCleartext: TRUE" >> ppolicy-conf.ldif
-ldapmodify -x -a -H ldap://localhost -D cn=admin,dc=$domaine,dc=private -W -f ppolicy-conf.ldif
+
+ldapmodify -x -a -H ldap://localhost -D cn=admin,dc=mondomaine,dc=private -W -f ppolicy-conf.ldif
 
 # Vérification de la prise en compte
-ldapsearch -x -H ldap://localhost -D cn=admin,dc=$domaine,dc=private -W -b cn=config "(objectClass=olcModuleList)" olcModuleLoad -LLL
+ldapsearch -x -H ldap://localhost -D cn=admin,dc=mondomaine,dc=private -W -b cn=config "(objectClass=olcPpolicyConfig)" -LLL
 
-# Configuration des règles de mot de passe
-echo "dn: cn=ppolicy,dc=$domaine,dc=private" > ppolicy-default.ldif
+# Configuration des règles ppolicy
+echo "dn: cn=ppolicy,dc=mondomaine,dc=private" > ppolicy-default.ldif
 echo "objectClass: device" >> ppolicy-default.ldif
 echo "objectClass: pwdPolicyChecker" >> ppolicy-default.ldif
 echo "objectClass: pwdPolicy" >> ppolicy-default.ldif
@@ -72,17 +93,136 @@ echo "pwdMinAge: 0" >> ppolicy-default.ldif
 echo "pwdMinLength: 5" >> ppolicy-default.ldif
 echo "pwdMustChange: FALSE" >> ppolicy-default.ldif
 echo "pwdSafeModify: FALSE" >> ppolicy-default.ldif
-ldapmodify -x -a -H ldap://localhost -D cn=admin,dc=$domaine,dc=private -W -f ppolicy-default.ldif
 
-# Arborescence OpenLDAP
-# Création de l'arborescence
-ldapadd -x -f ou.ldif -W -D cn=admin,dc=$domaine,dc=private
+ldapmodify -x -a -H ldap://localhost -D cn=admin,dc=mondomaine,dc=private -W -f ppolicy-default.ldif
+
+# Configuration de l'arborescence OpenLDAP
+cat <<EOL > ou.ldif
+dn: ou=personnes,dc=mondomaine,dc=private
+objectClass: top
+objectClass: organizationalUnit
+ou: personnes
+
+dn: ou=utilisateurs,ou=personnes,dc=mondomaine,dc=private
+objectClass: top
+objectClass: organizationalUnit
+ou: utilisateurs
+
+dn: ou=groupes,dc=mondomaine,dc=private
+objectClass: top
+objectClass: organizationalUnit
+ou: groupes
+EOL
+
+ldapadd -x -f ou.ldif -W -D cn=admin,dc=mondomaine,dc=private
 
 # Création des groupes
-ldapadd -x -f groupes.ldif -W -D cn=admin,dc=$domaine,dc=private
+cat <<EOL > groupes.ldif
+dn: cn=administrateurs,ou=groupes,dc=mondomaine,dc=private
+objectClass: posixGroup
+cn: administrateurs
+gidNumber: 4000
+description: administrateurs
+
+dn: cn=utilisateurs,ou=groupes,dc=mondomaine,dc=private
+objectClass: posixGroup
+cn: utilisateurs
+gidNumber: 4001
+description: utilisateurs
+
+dn: cn=invites,ou=groupes,dc=mondomaine,dc=private
+objectClass: posixGroup
+cn: invites
+gidNumber: 4002
+description: invites
+EOL
+
+ldapadd -x -f groupes.ldif -W -D cn=admin,dc=mondomaine,dc=private
 
 # Création des utilisateurs
-ldapadd -x -f utilisateurs.ldif -W -D cn=admin,dc=$domaine,dc=private
+cat <<EOL > utilisateurs.ldif
+dn: cn=adminlecture,dc=mondomaine,dc=private
+objectClass: person
+cn: adminlecture
+sn: adminlecture
+userPassword: adminlecture
+
+dn: uid=adminlan,ou=utilisateurs,ou=personnes,dc=mondomaine,dc=private
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: adminlan
+sn: adminlan
+givenName: adminlan
+cn: adminlan
+displayName: adminlan
+uidNumber: 3000
+gidNumber: 4000
+loginShell: /bin/bash
+homeDirectory: /home/adminlan
+mail: adminlan@mondomaine.private
+homePhone: +33 (0)1 00 00 00 00
+postalCode: 65000
+homePostalAddress:
+initials: AL
+jpegPhoto:
+mobile: +33 (0)7 00 00 00 00
+userPassword: adminlan
+
+dn: uid=johnd,ou=utilisateurs,ou=personnes,dc=mondomaine,dc=private
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: johnd
+sn: Doe
+givenName: John
+cn: John Doe
+displayName: John Doe
+uidNumber: 3001
+gidNumber: 4001
+loginShell: /bin/bash
+homeDirectory: /home/johnd
+mail: john.doe@mondomaine.private
+homePhone: +33 (0)5 00 00 00 00
+postalCode: 91000
+homePostalAddress:
+jpegPhoto:
+mobile: +33 (0)6 00 00 00 00
+initials: JD
+userPassword: johnd
+
+dn: uid=toto,ou=utilisateurs,ou=personnes,dc=mondomaine,dc=private
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: toto
+sn: toto
+givenName: toto
+cn: toto
+displayName: toto
+uidNumber: 3002
+gidNumber: 4002
+loginShell: /dev/null
+homeDirectory: /home/toto
+mail: toto@mondomaine.private
+homePhone: +33 (0)5 00 00 00 00
+postalCode: 91000
+homePostalAddress:
+jpegPhoto:
+mobile: +33 (0)6 00 00 00 00
+initials: TO
+userPassword: toto0
+EOL
+
+ldapadd -x -f utilisateurs.ldif -W -D cn=admin,dc=mondomaine,dc=private
 
 # Ajout du compte adminlecture aux groupes administrateurs
-ldapmodify -x -W -D "cn=admin,dc=$domaine,dc=private" -f ajout_groupes.ldif
+cat <<EOL > ajout_groupes.ldif
+dn: cn=administrateurs,ou=groupes,dc=mondomaine,dc=private
+changetype: modify
+add: memberuid
+memberuid: adminlecture
+EOL
+
+ldapmodify -x -W -D "cn=admin,dc=mondomaine,dc=private" -f ajout_groupes.ldif
+
