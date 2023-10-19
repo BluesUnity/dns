@@ -43,11 +43,9 @@ olcAccess: to * by dn.exact=cn=admin,dc=$domaine,dc=private manage by * break
 
 ldapmodify -Y external -H ldapi:/// -f /etc/ldap/acces-admin.ldif
 
-ldapsearch -x -H ldap://localhost -D cn=admin,dc=$domaine,dc=private -W -b cn=
-config
+ldapsearch -x -H ldap://localhost -D cn=admin,dc=$domaine,dc=private -W -b cn=config
 
-ldapsearch -x -s one -H ldap://localhost -D cn=admin,dc=$domaine,dc=private -W
--b cn=schema,cn=config cn -LLL
+ldapsearch -x -s one -H ldap://localhost -D cn=admin,dc=$domaine,dc=private -W -b cn=schema,cn=config cn -LLL
 echo "fin accessadmin"
 touch /etc/ldap/ppolicy-module.ldif
 echo "
