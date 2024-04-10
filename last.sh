@@ -38,8 +38,8 @@ echo "zone \"$ddns\"{
 };" >> /etc/bind/named.conf.local
 
 echo "
-$ORIGIN $ddns.
-$TTL    604800
+\$ORIGIN $ddns.
+\$TTL    604800
 @       IN      SOA     $ddns. root.$ddns. (
                               1         ; Serial
                          604800         ; Refresh
