@@ -52,7 +52,7 @@ $TTL    604800
 ns      IN      A       $ip_addr
 
 
-" > /etc/bind/db.$ddns
+" > /etc/bind/zones/db.$ddns
 echo "ok fichier conf"
 
 sed -i '60i\  /var/log/bind/** rw,' /etc/apparmor.d/usr.sbin.named
