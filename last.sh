@@ -1,16 +1,17 @@
 #!/bin/bash
 
 ip_addr="10.2.18.132"
-ddns="oin.tpsecu.rtmdm.eu"
+ddns="szoin.tpsecu.rtmdm.eu"
 apt update
 echo "ok apt"
 
 apt install bind9 bind9-doc dnsutils
 
 mkdir /var/log/bind
+mkdir /etc/bind/zones
 touch /var/log/bind/bind.log
 chown -R bind:bind /var/log/bind
-touch /etc/bind/db.nom
+touch /etc/bind/zones/db.$ddns
 
 echo "ok creation de fichier"
 
@@ -33,24 +34,25 @@ echo "logging {
 
 echo "zone \"$ddns\"{
 	type master;
-	file \"/etc/bind/db.nom\";
+	file \"/etc/bind/zones/db.$ddns\";
 };" >> /etc/bind/named.conf.local
 
 echo "
-\$TTL    604800
-@       IN      SOA     $ddns. admin.$ddns. (
-                              3         ; Serial
+$ORIGIN szoin.tpsecu.rtmdm.eu.
+$TTL    604800
+@       IN      SOA     szoin.tpsecu.rtmdm.eu. root.szoin.tpsecu.rtmdm.eu. (
+                              1         ; Serial
                          604800         ; Refresh
                           86400         ; Retry
                         2419200         ; Expire
                               1 )       ; Negative Cache TTL
 ;
-@       IN      NS      ns.$ddns.
+@       IN      NS      szoin.tpsecu.rtmdm.eu.
 @       IN      A       $ip_addr
 ns      IN      A       $ip_addr
-www     IN      A       $ip_addr
 
-" > /etc/bind/db.nom
+
+" > /etc/bind/db.$ddns
 echo "ok fichier conf"
 
 sed -i '60i\  /var/log/bind/** rw,' /etc/apparmor.d/usr.sbin.named
