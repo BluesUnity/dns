@@ -38,16 +38,16 @@ echo "zone \"$ddns\"{
 };" >> /etc/bind/named.conf.local
 
 echo "
-$ORIGIN szoin.tpsecu.rtmdm.eu.
+$ORIGIN $ddns.
 $TTL    604800
-@       IN      SOA     szoin.tpsecu.rtmdm.eu. root.szoin.tpsecu.rtmdm.eu. (
+@       IN      SOA     $ddns. root.$ddns. (
                               1         ; Serial
                          604800         ; Refresh
                           86400         ; Retry
                         2419200         ; Expire
                               1 )       ; Negative Cache TTL
 ;
-@       IN      NS      szoin.tpsecu.rtmdm.eu.
+@       IN      NS      $ddns.
 @       IN      A       $ip_addr
 ns      IN      A       $ip_addr
 
